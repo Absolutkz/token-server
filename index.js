@@ -5,13 +5,12 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json()); // Для DELETE и POST JSON-запросов
-app.use(express.static(__dirname)); // Для доступа к tokens-admin.html и др.
+app.use(express.json()); // Для обработки JSON-запросов
 
-// 🔐 Временное хранилище токенов (в памяти)
+// 🔐 Временное хранилище токенов в памяти
 const tokens = [];
 
-// 📆 Длительность по планам (в днях)
+// 🔢 Планы подписки и продолжительность (в днях)
 const durationMap = {
   day: 1,
   monthly: 30,
@@ -19,12 +18,12 @@ const durationMap = {
   yearly: 365,
 };
 
-// 🔑 Генерация токена
+// 🔑 Генерация случайного токена
 function generateToken() {
   return crypto.randomBytes(3).toString("hex").toUpperCase(); // Пример: 5F8A1C
 }
 
-// 📥 /generate-token?plan=...
+// 📦 Генерация токена
 app.get("/generate-token", (req, res) => {
   const { plan } = req.query;
 
@@ -36,16 +35,17 @@ app.get("/generate-token", (req, res) => {
   const token = generateToken();
 
   tokens.push({ token, plan, expiresAt });
+
   res.json({ success: true, token, plan, expiresAt });
 });
 
-// ✅ /check-token?token=...
+// ✅ Проверка токена
 app.get("/check-token", (req, res) => {
   const { token } = req.query;
   const found = tokens.find((t) => t.token === token);
 
   if (!found) {
-    return res.status(401).json({ valid: false, message: "Token not found or expired" });
+    return res.status(401).json({ valid: false, message: "Token not found" });
   }
 
   const now = new Date();
@@ -53,32 +53,28 @@ app.get("/check-token", (req, res) => {
     return res.status(401).json({ valid: false, message: "Token expired" });
   }
 
-  res.json({
-    valid: true,
-    plan: found.plan,
-    expiresAt: found.expiresAt,
-  });
+  res.json({ valid: true, plan: found.plan, expiresAt: found.expiresAt });
 });
 
-// 📋 /tokens?filter=all|active|expired
+// 📋 Список токенов (с фильтрацией)
 app.get("/tokens", (req, res) => {
-  const { filter } = req.query;
+  const filter = req.query.filter || "all";
   const now = new Date();
-  let filtered = tokens;
 
-  if (filter === "active") {
-    filtered = tokens.filter(t => new Date(t.expiresAt) > now);
-  } else if (filter === "expired") {
-    filtered = tokens.filter(t => new Date(t.expiresAt) <= now);
-  }
+  const filteredTokens = tokens.filter((t) => {
+    const expired = now > new Date(t.expiresAt);
+    if (filter === "active") return !expired;
+    if (filter === "expired") return expired;
+    return true;
+  });
 
-  res.json(filtered);
+  res.json(filteredTokens);
 });
 
-// ❌ /tokens/:token (DELETE)
+// 🗑 Удаление токена
 app.delete("/tokens/:token", (req, res) => {
   const { token } = req.params;
-  const index = tokens.findIndex(t => t.token === token);
+  const index = tokens.findIndex((t) => t.token === token);
 
   if (index === -1) {
     return res.status(404).json({ success: false, message: "Token not found" });
@@ -88,19 +84,15 @@ app.delete("/tokens/:token", (req, res) => {
   res.json({ success: true, message: `Token ${token} удалён.` });
 });
 
-// 🖥️ /admin → откроет HTML-файл
-app.get("/admin", (req, res) => {
-  res.sendFile(path.join(__dirname, "tokens-admin.html"));
-});
+// 🌐 Статическая страница управления (/admin)
+app.use("/admin", express.static(path.join(__dirname)));
 
-// 🏠 Корень
+// 🏠 Главная страница
 app.get("/", (req, res) => {
   res.send("🔑 Сервер токенов работает. Используйте /generate-token, /check-token, /tokens, /tokens/:token");
 });
 
 // ▶️ Запуск сервера
 app.listen(PORT, () => {
-  console.log(`✅ Сервер запущен на http://localhost:${PORT}`);
+  console.log(`✅ Сервер запущен: http://localhost:${PORT}`);
 });
-
-
