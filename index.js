@@ -1,18 +1,14 @@
 const express = require("express");
 const crypto = require("crypto");
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Токены хранятся в памяти (временное хранилище)
+app.use(express.json()); // для обработки JSON в DELETE и будущем POST
+
+// Временное хранилище токенов в памяти
 const tokens = [];
 
-// Генерация случайного токена
-function generateToken() {
-  return crypto.randomBytes(3).toString("hex").toUpperCase(); // Например: 5F8A1C
-}
-
-// План подписок и продолжительность в днях
+// План подписок и продолжительность
 const durationMap = {
   day: 1,
   monthly: 30,
@@ -20,7 +16,12 @@ const durationMap = {
   yearly: 365,
 };
 
-// Эндпоинт для генерации токена
+// Генерация случайного токена
+function generateToken() {
+  return crypto.randomBytes(3).toString("hex").toUpperCase(); // Например: 5F8A1C
+}
+
+// 🔐 Генерация токена
 app.get("/generate-token", (req, res) => {
   const { plan } = req.query;
 
@@ -33,15 +34,10 @@ app.get("/generate-token", (req, res) => {
 
   tokens.push({ token, plan, expiresAt });
 
-  res.json({
-    success: true,
-    token,
-    plan,
-    expiresAt,
-  });
+  res.json({ success: true, token, plan, expiresAt });
 });
 
-// Эндпоинт для проверки токена
+// 🔍 Проверка токена
 app.get("/check-token", (req, res) => {
   const { token } = req.query;
 
@@ -58,19 +54,34 @@ app.get("/check-token", (req, res) => {
     return res.status(401).json({ valid: false, message: "Token expired" });
   }
 
-  res.json({
-    valid: true,
-    plan: found.plan,
-    expiresAt: found.expiresAt,
-  });
+  res.json({ valid: true, plan: found.plan, expiresAt: found.expiresAt });
 });
 
-// Главная страница
+// 📋 Получить список всех активных токенов
+app.get("/tokens", (req, res) => {
+  res.json(tokens);
+});
+
+// ❌ Удалить токен по значению
+app.delete("/tokens/:token", (req, res) => {
+  const { token } = req.params;
+  const index = tokens.findIndex((t) => t.token === token);
+
+  if (index === -1) {
+    return res.status(404).json({ success: false, message: "Token not found" });
+  }
+
+  tokens.splice(index, 1);
+  res.json({ success: true, message: `Token ${token} удалён.` });
+});
+
+// 🏠 Главная страница
 app.get("/", (req, res) => {
-  res.send("🔑 Сервер токенов работает. Используйте /generate-token?plan=... или /check-token?token=...");
+  res.send("🔑 Сервер токенов работает. Используйте /generate-token, /check-token, /tokens, /tokens/:token");
 });
 
-// Запуск сервера
+// ▶️ Запуск сервера
 app.listen(PORT, () => {
   console.log(`✅ Сервер запущен на http://localhost:${PORT}`);
 });
+
