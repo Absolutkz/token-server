@@ -7,10 +7,11 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json()); // Для обработки JSON-запросов
 
-// 🔐 Временное хранилище токенов в памяти
+// 📁 Статическая папка — текущая директория
+app.use(express.static(path.join(__dirname)));
+
 const tokens = [];
 
-// 🔢 Планы подписки и продолжительность (в днях)
 const durationMap = {
   day: 1,
   monthly: 30,
@@ -18,12 +19,11 @@ const durationMap = {
   yearly: 365,
 };
 
-// 🔑 Генерация случайного токена
 function generateToken() {
   return crypto.randomBytes(3).toString("hex").toUpperCase(); // Пример: 5F8A1C
 }
 
-// 📦 Генерация токена
+// 🔐 Генерация токена
 app.get("/generate-token", (req, res) => {
   const { plan } = req.query;
 
@@ -48,30 +48,29 @@ app.get("/check-token", (req, res) => {
     return res.status(401).json({ valid: false, message: "Token not found" });
   }
 
-  const now = new Date();
-  if (now > new Date(found.expiresAt)) {
+  if (new Date() > new Date(found.expiresAt)) {
     return res.status(401).json({ valid: false, message: "Token expired" });
   }
 
   res.json({ valid: true, plan: found.plan, expiresAt: found.expiresAt });
 });
 
-// 📋 Список токенов (с фильтрацией)
+// 📋 Получение списка токенов (с фильтром)
 app.get("/tokens", (req, res) => {
   const filter = req.query.filter || "all";
   const now = new Date();
 
-  const filteredTokens = tokens.filter((t) => {
+  const filtered = tokens.filter((t) => {
     const expired = now > new Date(t.expiresAt);
     if (filter === "active") return !expired;
     if (filter === "expired") return expired;
     return true;
   });
 
-  res.json(filteredTokens);
+  res.json(filtered);
 });
 
-// 🗑 Удаление токена
+// ❌ Удаление токена
 app.delete("/tokens/:token", (req, res) => {
   const { token } = req.params;
   const index = tokens.findIndex((t) => t.token === token);
@@ -84,10 +83,12 @@ app.delete("/tokens/:token", (req, res) => {
   res.json({ success: true, message: `Token ${token} удалён.` });
 });
 
-// 🌐 Статическая страница управления (/admin)
-app.use("/admin", express.static(path.join(__dirname)));
+// 🌐 Панель управления (HTML)
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "tokens-admin.html"));
+});
 
-// 🏠 Главная страница
+// 🏠 Главная
 app.get("/", (req, res) => {
   res.send("🔑 Сервер токенов работает. Используйте /generate-token, /check-token, /tokens, /tokens/:token");
 });
