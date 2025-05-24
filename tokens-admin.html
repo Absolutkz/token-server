@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Управление токенами</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 30px; }
+    h1 { margin-bottom: 10px; }
+    input, select, button { margin: 5px 0; padding: 6px; font-size: 16px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+    th { background: #f7f7f7; }
+    tr.expired { background: #ffe5e5; }
+    tr.active { background: #e5ffe7; }
+    .btn-del { color: #b00; background: #fff; border: 1px solid #b00; cursor: pointer; padding: 3px 8px; border-radius: 3px; }
+    .btn-del:hover { background: #fdd; }
+  </style>
+</head>
+<body>
+  <h1>Админ-панель токенов</h1>
+
+  <h2>Генерация нового токена</h2>
+  <form id="genForm" onsubmit="return generateToken();">
+    <label>Тариф:&nbsp;
+      <select id="plan">
+        <option value="day">На день</option>
+        <option value="monthly">На месяц</option>
+        <option value="halfyear">На 6 месяцев</option>
+        <option value="yearly">На год</option>
+      </select>
+    </label>
+    <button type="submit">Сгенерировать</button>
+    <span id="genResult"></span>
+  </form>
+
+  <h2>Проверка токена</h2>
+  <form id="checkForm" onsubmit="return checkToken();">
+    <input type="text" id="checkTokenInput" placeholder="Введите токен" maxlength="12" required>
+    <button type="submit">Проверить</button>
+    <span id="checkResult"></span>
+  </form>
+
+  <h2>Список всех токенов</h2>
+  <label>
+    Фильтр:
+    <select id="filter" onchange="loadTokens();">
+      <option value="all">Все</option>
+      <option value="active">Активные</option>
+      <option value="expired">Истёкшие</option>
+    </select>
+  </label>
+  <button onclick="loadTokens();">Обновить</button>
+  <table id="tokensTable">
+    <thead>
+      <tr>
+        <th>Токен</th>
+        <th>Тариф</th>
+        <th>Истекает</th>
+        <th>Статус</th>
+        <th>Удалить</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- токены будут здесь -->
+    </tbody>
+  </table>
+
+  <script>
+    async function generateToken() {
+      event.preventDefault();
+      const plan = document.getElementById('plan').value;
+      const res = await fetch(`/generate-token?plan=${plan}`);
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById('genResult').textContent = `Токен: ${data.token}`;
+        loadTokens();
+      } else {
+        document.getElementById('genResult').textContent = 'Ошибка: ' + data.message;
+      }
+      return false;
+    }
+
+    async function checkToken() {
+      event.preventDefault();
+      const token = document.getElementById('checkTokenInput').value.trim();
+      if (!token) return false;
+      const res = await fetch(`/check-token?token=${token}`);
+      const data = await res.json();
+      if (data.valid) {
+        document.getElementById('checkResult').textContent = `ОК! Тариф: ${data.plan}, истекает: ${data.expiresAt}`;
+      } else {
+        document.getElementById('checkResult').textContent = `❌ ${data.message || 'Токен не найден'}`;
+      }
+      return false;
+    }
+
+    async function loadTokens() {
+      const filter = document.getElementById('filter').value;
+      const res = await fetch(`/tokens?filter=${filter}`);
+      const tokens = await res.json();
+      const tbody = document.getElementById('tokensTable').querySelector('tbody');
+      tbody.innerHTML = "";
+      const now = Date.now();
+
+      tokens.forEach(t => {
+        const expires = new Date(t.expiresAt);
+        const expired = now > expires.getTime();
+        const tr = document.createElement('tr');
+        tr.className = expired ? 'expired' : 'active';
+        tr.innerHTML = `
+          <td>${t.token}</td>
+          <td>${t.plan}</td>
+          <td>${expires.toLocaleString()}</td>
+          <td>${expired ? 'Истёк' : 'Активен'}</td>
+          <td><button class="btn-del" onclick="deleteToken('${t.token}')">Удалить</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function deleteToken(token) {
+      if (!confirm('Удалить токен ' + token + '?')) return;
+      const res = await fetch(`/tokens/${token}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        loadTokens();
+      } else {
+        alert('Ошибка: ' + data.message);
+      }
+    }
+
+    // Автоматическая подгрузка токенов при загрузке страницы
+    window.onload = loadTokens;
+  </script>
+</body>
+</html>
