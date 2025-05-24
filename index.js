@@ -2,102 +2,47 @@ const express = require("express");
 const crypto = require("crypto");
 const path = require("path");
 const fs = require("fs");
+const TOKENS_FILE = path.join(__dirname, "tokens.json");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const TOKENS_FILE = path.join(__dirname, "tokens.json");
-
-app.use(express.json());
-
-// 📁 Статическая папка — текущая директория
-app.use(express.static(path.join(__dirname)));
-
-// ===== Логика работы с токенами через файл =====
-
-// Загрузка токенов из файла
-function loadTokens() {
+let tokens = [];
+if (fs.existsSync(TOKENS_FILE)) {
   try {
-    return JSON.parse(fs.readFileSync(TOKENS_FILE, "utf8"));
+    tokens = JSON.parse(fs.readFileSync(TOKENS_FILE, "utf8"));
   } catch (e) {
-    return [];
+    tokens = [];
+    console.error("Ошибка чтения tokens.json:", e);
   }
 }
 
-// Сохранение токенов в файл
-function saveTokens(tokens) {
-  fs.writeFileSync(TOKENS_FILE, JSON.stringify(tokens, null, 2));
+function saveTokens() {
+  fs.writeFileSync(TOKENS_FILE, JSON.stringify(tokens, null, 2), "utf8");
 }
 
-// Используем рабочий массив, который всегда актуален
-let tokens = loadTokens();
+// ... ваш durationMap и другие функции
 
-const durationMap = {
-  day: 1,
-  monthly: 30,
-  halfyear: 180,
-  yearly: 365,
-};
+app.use(express.json());
+app.use(express.static(path.join(__dirname)));
 
-function generateToken() {
-  return crypto.randomBytes(3).toString("hex").toUpperCase(); // Пример: 5F8A1C
-}
+// ... остальной код
 
 // 🔐 Генерация токена
 app.get("/generate-token", (req, res) => {
   const { plan } = req.query;
-
-  if (!durationMap[plan]) {
-    return res.status(400).json({ success: false, message: "Неверный тарифный план" });
-  }
-
+  // ... ваша логика проверки тарифа
   const expiresAt = new Date(Date.now() + durationMap[plan] * 24 * 60 * 60 * 1000);
   const token = generateToken();
 
   tokens.push({ token, plan, expiresAt });
-  saveTokens(tokens); // <--- Сохраняем токены в файл
+  saveTokens();
 
   res.json({ success: true, token, plan, expiresAt });
 });
 
-// ✅ Проверка токена
-app.get("/check-token", (req, res) => {
-  // Перед каждой проверкой перечитываем токены из файла
-  tokens = loadTokens();
-
-  const { token } = req.query;
-  const found = tokens.find((t) => t.token === token);
-
-  if (!found) {
-    return res.status(401).json({ valid: false, message: "Token not found" });
-  }
-
-  if (new Date() > new Date(found.expiresAt)) {
-    return res.status(401).json({ valid: false, message: "Token expired" });
-  }
-
-  res.json({ valid: true, plan: found.plan, expiresAt: found.expiresAt });
-});
-
-// 📋 Получение списка токенов (с фильтром)
-app.get("/tokens", (req, res) => {
-  tokens = loadTokens();
-  const filter = req.query.filter || "all";
-  const now = new Date();
-
-  const filtered = tokens.filter((t) => {
-    const expired = now > new Date(t.expiresAt);
-    if (filter === "active") return !expired;
-    if (filter === "expired") return expired;
-    return true;
-  });
-
-  res.json(filtered);
-});
-
 // ❌ Удаление токена
 app.delete("/tokens/:token", (req, res) => {
-  tokens = loadTokens();
   const { token } = req.params;
   const index = tokens.findIndex((t) => t.token === token);
 
@@ -106,22 +51,7 @@ app.delete("/tokens/:token", (req, res) => {
   }
 
   tokens.splice(index, 1);
-  saveTokens(tokens);
+  saveTokens();
 
   res.json({ success: true, message: `Token ${token} удалён.` });
-});
-
-// 🌐 Панель управления (HTML)
-app.get("/admin", (req, res) => {
-  res.sendFile(path.join(__dirname, "tokens-admin.html"));
-});
-
-// 🏠 Главная
-app.get("/", (req, res) => {
-  res.send("🔑 Сервер токенов работает. Используйте /generate-token, /check-token, /tokens, /tokens/:token");
-});
-
-// ▶️ Запуск сервера
-app.listen(PORT, () => {
-  console.log(`✅ Сервер запущен: http://localhost:${PORT}`);
 });
