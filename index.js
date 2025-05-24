@@ -1,108 +1,102 @@
 const express = require("express");
 const crypto = require("crypto");
 const path = require("path");
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion } = require("mongodb");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// MongoDB config
-const uri = "mongodb+srv://absolutkz:yhDC0BBrNRiV367C@cluster0.rnoqlpq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+// --- MongoDB config ---
+const uri = process.env.MONGODB_URI;
+if (!uri) {
+  console.error("Ошибка: переменная среды MONGODB_URI не задана!");
+  process.exit(1);
+}
+
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  }
+  },
 });
+
 let tokensCollection;
 
-// Стартуем соединение с БД один раз при запуске
-async function startMongo() {
-  await client.connect();
-  const db = client.db("tokenServerDB"); // любое название вашей БД
-  tokensCollection = db.collection("tokens");
-  console.log("✅ Подключение к MongoDB Atlas успешно!");
+// --- Подключение к базе данных ---
+async function connectDB() {
+  try {
+    await client.connect();
+    const db = client.db("token-server"); // база будет создана автоматически
+    tokensCollection = db.collection("tokens");
+    console.log("✅ Подключено к MongoDB");
+  } catch (e) {
+    console.error("❌ Ошибка подключения к MongoDB:", e);
+    process.exit(1);
+  }
 }
-startMongo().catch(console.dir);
 
-// Для обработки JSON-запросов
+// --- Middlewares ---
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-// Для генерации срока действия токена
-const durationMap = {
-  day: 1,
-  monthly: 30,
-  halfyear: 180,
-  yearly: 365,
-};
-
+// --- Генерация токена ---
 function generateToken() {
   return crypto.randomBytes(3).toString("hex").toUpperCase();
 }
 
-// Генерация токена и запись в БД
-app.get("/generate-token", async (req, res) => {
-  const { plan } = req.query;
-  if (!durationMap[plan]) {
-    return res.status(400).json({ success: false, message: "Неверный тарифный план" });
-  }
-  const expiresAt = new Date(Date.now() + durationMap[plan] * 24 * 60 * 60 * 1000);
+// --- API ---
+// 1. Генерация нового токена
+app.post("/generate-token", async (req, res) => {
+  const { plan = "day", expiresIn = 24 * 60 * 60 * 1000 } = req.body; // по умолчанию 1 день
   const token = generateToken();
+  const expiresAt = Date.now() + expiresIn;
 
-  await tokensCollection.insertOne({ token, plan, expiresAt });
-  res.json({ success: true, token, plan, expiresAt });
+  const tokenData = {
+    token,
+    plan,
+    expiresAt,
+    status: "active",
+  };
+
+  await tokensCollection.insertOne(tokenData);
+  res.json({ token, plan, expiresAt });
 });
 
-// Проверка токена
+// 2. Проверка токена
 app.get("/check-token", async (req, res) => {
   const { token } = req.query;
-  const found = await tokensCollection.findOne({ token });
-  if (!found) {
-    return res.status(401).json({ valid: false, message: "Token not found" });
+  if (!token) return res.status(400).json({ valid: false, message: "Token required" });
+
+  const found = await tokensCollection.findOne({ token, status: "active", expiresAt: { $gt: Date.now() } });
+  if (found) {
+    res.json({ valid: true, plan: found.plan, expiresAt: new Date(found.expiresAt).toISOString() });
+  } else {
+    res.status(401).json({ valid: false, message: "Token not found or expired" });
   }
-  if (new Date() > new Date(found.expiresAt)) {
-    return res.status(401).json({ valid: false, message: "Token expired" });
-  }
-  res.json({ valid: true, plan: found.plan, expiresAt: found.expiresAt });
 });
 
-// Получение всех токенов с фильтром
-app.get("/tokens", async (req, res) => {
-  const filter = req.query.filter || "all";
-  const now = new Date();
-  const allTokens = await tokensCollection.find({}).toArray();
-  const filtered = allTokens.filter((t) => {
-    const expired = now > new Date(t.expiresAt);
-    if (filter === "active") return !expired;
-    if (filter === "expired") return expired;
-    return true;
-  });
-  res.json(filtered);
-});
-
-// Удаление токена
-app.delete("/tokens/:token", async (req, res) => {
-  const { token } = req.params;
-  const result = await tokensCollection.deleteOne({ token });
-  if (result.deletedCount === 0) {
-    return res.status(404).json({ success: false, message: "Token not found" });
-  }
-  res.json({ success: true, message: `Token ${token} удалён.` });
-});
-
-// Панель управления
+// 3. Админ-панель (статические файлы)
 app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "tokens-admin.html"));
 });
 
-// Главная страница
-app.get("/", (req, res) => {
-  res.send("🔑 Сервер токенов работает. Используйте /generate-token, /check-token, /tokens, /tokens/:token");
+// 4. Список токенов (админ)
+app.get("/list-tokens", async (req, res) => {
+  const tokens = await tokensCollection.find({}).toArray();
+  res.json(tokens);
 });
 
-// Запуск сервера
-app.listen(PORT, () => {
-  console.log(`✅ Сервер запущен: http://localhost:${PORT}`);
+// 5. Удаление токена (админ)
+app.post("/delete-token", async (req, res) => {
+  const { token } = req.body;
+  const result = await tokensCollection.deleteOne({ token });
+  res.json({ deleted: result.deletedCount === 1 });
+});
+
+// --- Запуск сервера ---
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`🚀 Сервер запущен на порту ${PORT}`);
+  });
 });
