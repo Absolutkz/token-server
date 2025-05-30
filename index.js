@@ -1,111 +1,117 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>Админ-панель токенов</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-        th { background-color: #f2f2f2; }
-        .active { background-color: #d4edda; }
-    </style>
-</head>
-<body>
-    <h2>Админ-панель токенов</h2>
+const express = require("express");
+const crypto = require("crypto");
+const path = require("path");
+const { MongoClient, ServerApiVersion } = require("mongodb");
 
-    <h3>Генерация нового токена</h3>
-    <label for="plan">Тариф:</label>
-    <select id="plan">
-        <option value="day">На день</option>
-        <option value="monthly">На месяц</option>
-        <option value="halfyear">На 6 месяцев</option>
-        <option value="yearly">На год</option>
-    </select>
-    <label for="agent">Агент:</label>
-    <select id="agent">
-        <option value="lawyer">Адвокат Человек</option>
-        <option value="zheka">ЖЭКА</option>
-        <option value="bankshield">БанкЩит</option>
-    </select>
-    <button onclick="generateToken()">Сгенерировать</button>
-    <p id="newTokenResult"></p>
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-    <h3>Проверка токена</h3>
-    <input type="text" id="checkTokenInput" placeholder="Введите токен">
-    <select id="checkAgent">
-        <option value="lawyer">Адвокат Человек</option>
-        <option value="zheka">ЖЭКА</option>
-        <option value="bankshield">БанкЩит</option>
-    </select>
-    <button onclick="checkToken()">Проверить</button>
-    <p id="checkResult"></p>
+const uri = process.env.MONGODB_URI;
+if (!uri) {
+  console.error("Ошибка: переменная среды MONGODB_URI не задана!");
+  process.exit(1);
+}
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  },
+});
 
-    <h3>Список всех токенов</h3>
-    <label for="filter">Фильтр:</label>
-    <select id="filter">
-        <option value="">Все</option>
-        <option value="active">Активные</option>
-        <option value="expired">Истёкшие</option>
-    </select>
-    <select id="filterAgent">
-        <option value="">Все агенты</option>
-        <option value="lawyer">Адвокат Человек</option>
-        <option value="zheka">ЖЭКА</option>
-        <option value="bankshield">БанкЩит</option>
-    </select>
-    <button onclick="loadTokens()">Обновить</button>
-    <table>
-        <thead>
-            <tr><th>Токен</th><th>Тариф</th><th>Агент</th><th>Истекает</th><th>Статус</th><th>Удалить</th></tr>
-        </thead>
-        <tbody id="tokenTable"></tbody>
-    </table>
+let tokensCollection;
 
-    <script>
-        async function generateToken() {
-            const plan = document.getElementById("plan").value;
-            const agent = document.getElementById("agent").value;
-            const res = await fetch(`/generate-token?plan=${plan}&agent=${agent}`);
-            const data = await res.json();
-            document.getElementById("newTokenResult").textContent = data.success ? `Создан токен: ${data.token}, тариф: ${data.plan}, агент: ${data.agent}, истекает: ${new Date(data.expiresAt).toLocaleString()}` : `Ошибка: ${data.message}`;
-            loadTokens();
-        }
+async function connectDB() {
+  try {
+    await client.connect();
+    const db = client.db("token-server");
+    tokensCollection = db.collection("tokens");
+    console.log("✅ Подключено к MongoDB");
+  } catch (e) {
+    console.error("❌ Ошибка подключения к MongoDB:", e);
+    process.exit(1);
+  }
+}
 
-        async function checkToken() {
-            const token = document.getElementById("checkTokenInput").value;
-            const agent = document.getElementById("checkAgent").value;
-            const res = await fetch(`/check-token?token=${token}&agent=${agent}`);
-            const data = await res.json();
-            document.getElementById("checkResult").textContent = data.valid ? `Токен действителен. План: ${data.plan}, агент: ${data.agent}, истекает: ${data.expiresAt}` : `Ошибка: ${data.message}`;
-        }
+app.use(express.json());
+app.use(express.static(path.join(__dirname)));
 
-        async function loadTokens() {
-            const filter = document.getElementById("filter").value;
-            const agent = document.getElementById("filterAgent").value;
-            let url = `/tokens`;
-            const params = [];
-            if (filter) params.push(`filter=${filter}`);
-            if (agent) params.push(`agent=${agent}`);
-            if (params.length > 0) url += `?${params.join('&')}`;
-            const res = await fetch(url);
-            const tokens = await res.json();
-            const tbody = document.getElementById("tokenTable");
-            tbody.innerHTML = "";
-            tokens.forEach(t => {
-                const tr = document.createElement("tr");
-                tr.className = t.status === "active" ? "active" : "";
-                tr.innerHTML = `<td>${t.token}</td><td>${t.plan}</td><td>${t.agent}</td><td>${new Date(t.expiresAt).toLocaleString()}</td><td>${t.status === "active" ? "Активен" : "Неактивен"}</td><td><button onclick="deleteToken('${t.token}')">Удалить</button></td>`;
-                tbody.appendChild(tr);
-            });
-        }
+function generateToken() {
+  return crypto.randomBytes(3).toString("hex").toUpperCase();
+}
 
-        async function deleteToken(token) {
-            await fetch(`/tokens/${token}`, { method: "DELETE" });
-            loadTokens();
-        }
+// Генерация токена (GET, query)
+app.get("/generate-token", async (req, res) => {
+  try {
+    const plan = req.query.plan || "default";
+    const agent = req.query.agent || "default";  // Новый параметр
+    let expiresIn = 24 * 60 * 60 * 1000; // день по умолчанию
+    if (plan === "monthly") expiresIn = 30 * 24 * 60 * 60 * 1000;
+    if (plan === "halfyear") expiresIn = 182 * 24 * 60 * 60 * 1000;
+    if (plan === "yearly") expiresIn = 365 * 24 * 60 * 60 * 1000;
+    const token = generateToken();
+    const expiresAt = Date.now() + expiresIn;
+    const tokenData = { token, plan, agent, expiresAt, status: "active" };
+    await tokensCollection.insertOne(tokenData);
+    res.json({ success: true, token, plan, agent, expiresAt });
+  } catch (err) {
+    res.json({ success: false, message: err.message });
+  }
+});
 
-        loadTokens();
-    </script>
-</body>
-</html>
+// Проверка токена с учетом agent и plan
+app.get("/check-token", async (req, res) => {
+  const { token, agent } = req.query;
+  if (!token || !agent) return res.status(400).json({ valid: false, message: "Token and agent required" });
+  const found = await tokensCollection.findOne({
+    token,
+    agent,  // Проверяем agent
+    status: "active",
+    expiresAt: { $gt: Date.now() }
+  });
+  if (found) {
+    res.json({ valid: true, plan: found.plan, agent: found.agent, expiresAt: new Date(found.expiresAt).toLocaleString() });
+  } else {
+    res.status(401).json({ valid: false, message: "Token not found, expired, or agent mismatch" });
+  }
+});
+
+// Список токенов с фильтром по статусу и agent
+app.get("/tokens", async (req, res) => {
+  const { filter, agent } = req.query;
+  let query = {};
+  if (filter === "active") {
+    query.status = "active";
+    query.expiresAt = { $gt: Date.now() };
+  } else if (filter === "expired") {
+    query = { $or: [{ status: { $ne: "active" } }, { expiresAt: { $lt: Date.now() } }] };
+  }
+  if (agent) {
+    query.agent = agent;
+  }
+  const tokens = await tokensCollection.find(query).toArray();
+  res.json(tokens);
+});
+
+// Удаление токена
+app.delete("/tokens/:token", async (req, res) => {
+  const { token } = req.params;
+  const result = await tokensCollection.deleteOne({ token });
+  if (result.deletedCount === 1) {
+    res.json({ success: true });
+  } else {
+    res.json({ success: false, message: "Token not found" });
+  }
+});
+
+// Админ-панель (статический HTML)
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "tokens-admin.html"));
+});
+
+// Запуск сервера
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`🚀 Сервер запущен на порту ${PORT}`);
+  });
+});
