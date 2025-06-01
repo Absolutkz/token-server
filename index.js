@@ -11,7 +11,6 @@ if (!uri) {
   console.error("Ошибка: переменная среды MONGODB_URI не задана!");
   process.exit(1);
 }
-
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -60,7 +59,7 @@ app.post("/generate-token", async (req, res) => {
     const expiresAt = Date.now() + expiresIn;
     const tokenData = { token, plan, agent, expiresAt, status: "active" };
     await tokensCollection.insertOne(tokenData);
-    console.log(`🔑 Новый токен создан: ${token}, agent: ${agent}, план: ${plan}`);
+    console.log(`🔑 Новый токен создан: ${token}, агент: ${agent}, план: ${plan}`);
     res.json({ success: true, token, plan, agent, expiresAt });
   } catch (err) {
     console.error("❌ Ошибка генерации токена:", err);
@@ -68,29 +67,36 @@ app.post("/generate-token", async (req, res) => {
   }
 });
 
-// 2. Проверка токена (GET)
+// 2. Проверка токена (GET) — универсальная логика для всех агентов
 app.get("/check-token", async (req, res) => {
   const { token, agent } = req.query;
   console.log(`🔍 Проверка токена: ${token}, агент: ${agent}`);
+
   if (!token || !agent) {
     return res.status(400).json({ valid: false, message: "Token and agent required" });
   }
-  try {
-    // ВСЕГДА ищем токен без фильтра по expiresAt и статусу
-    const found = await tokensCollection.findOne({ token, agent });
-    console.log("📋 Результат поиска:", found);
-    if (!found) {
-      return res.status(401).json({ valid: false, message: "Token not found" });
-    }
-    if (found.status !== "active") {
-      return res.status(401).json({ valid: false, message: "Token inactive" });
-    }
-    if (found.expiresAt < Date.now()) {
-      return res.status(401).json({ valid: false, message: "Token expired" });
-    }
 
-    // Валидный токен
-    res.json({ valid: true, plan: found.plan, agent: found.agent, expiresAt: new Date(found.expiresAt).toISOString() });
+  try {
+    // Проверка в базе данных: ищем токен для указанного агента
+    const found = await tokensCollection.findOne({
+      token,
+      agent,
+      status: "active",
+      expiresAt: { $gt: Date.now() }
+    });
+
+    console.log("📋 Результат поиска:", found);
+
+    if (found) {
+      res.json({
+        valid: true,
+        plan: found.plan,
+        agent: found.agent,
+        expiresAt: new Date(found.expiresAt).toISOString()
+      });
+    } else {
+      res.status(401).json({ valid: false, message: "Token not found or expired" });
+    }
   } catch (err) {
     console.error("❌ Ошибка при проверке токена:", err);
     res.status(500).json({ valid: false, message: "Internal server error" });
