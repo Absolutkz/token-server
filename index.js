@@ -42,7 +42,7 @@ function generateToken() {
 
 // --- API ---
 
-// 1. Генерация токена (POST, JSON)
+// 1. Генерация токена (POST)
 app.post("/generate-token", async (req, res) => {
   try {
     const { plan = "day", agent = "lawyer" } = req.body;
@@ -59,8 +59,10 @@ app.post("/generate-token", async (req, res) => {
     const expiresAt = Date.now() + expiresIn;
     const tokenData = { token, plan, agent, expiresAt, status: "active" };
     await tokensCollection.insertOne(tokenData);
+    console.log(`🔑 Новый токен создан: ${token}, agent: ${agent}, план: ${plan}`);
     res.json({ success: true, token, plan, agent, expiresAt });
   } catch (err) {
+    console.error("❌ Ошибка генерации токена:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -68,14 +70,23 @@ app.post("/generate-token", async (req, res) => {
 // 2. Проверка токена (GET)
 app.get("/check-token", async (req, res) => {
   const { token, agent } = req.query;
+  console.log(`🔍 Проверка токена: ${token}, агент: ${agent}`);
   if (!token || !agent) {
     return res.status(400).json({ valid: false, message: "Token and agent required" });
   }
-  const found = await tokensCollection.findOne({ token, agent, status: "active", expiresAt: { $gt: Date.now() } });
-  if (found) {
-    res.json({ valid: true, plan: found.plan, agent: found.agent, expiresAt: new Date(found.expiresAt).toISOString() });
-  } else {
-    res.status(401).json({ valid: false, message: "Token not found or expired" });
+  try {
+    const found = await tokensCollection.findOne({
+      token, agent, status: "active", expiresAt: { $gt: Date.now() }
+    });
+    console.log("📋 Результат поиска:", found);
+    if (found) {
+      res.json({ valid: true, plan: found.plan, agent: found.agent, expiresAt: new Date(found.expiresAt).toISOString() });
+    } else {
+      res.status(401).json({ valid: false, message: "Token not found or expired" });
+    }
+  } catch (err) {
+    console.error("❌ Ошибка при проверке токена:", err);
+    res.status(500).json({ valid: false, message: "Internal server error" });
   }
 });
 
@@ -95,11 +106,12 @@ app.get("/tokens", async (req, res) => {
 });
 
 // 4. Удаление токена (DELETE)
+// Здесь можно либо удалять, либо помечать как "inactive" для безопасности
 app.delete("/tokens/:token", async (req, res) => {
   const { token } = req.params;
-  const result = await tokensCollection.deleteOne({ token });
-  if (result.deletedCount === 1) {
-    res.json({ success: true });
+  const result = await tokensCollection.updateOne({ token }, { $set: { status: 'inactive' } });
+  if (result.matchedCount === 1) {
+    res.json({ success: true, message: "Token marked as inactive" });
   } else {
     res.status(404).json({ success: false, message: "Token not found" });
   }
