@@ -11,6 +11,7 @@ if (!uri) {
   console.error("Ошибка: переменная среды MONGODB_URI не задана!");
   process.exit(1);
 }
+
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -75,15 +76,21 @@ app.get("/check-token", async (req, res) => {
     return res.status(400).json({ valid: false, message: "Token and agent required" });
   }
   try {
-    const found = await tokensCollection.findOne({
-      token, agent, status: "active", expiresAt: { $gt: Date.now() }
-    });
+    // ВСЕГДА ищем токен без фильтра по expiresAt и статусу
+    const found = await tokensCollection.findOne({ token, agent });
     console.log("📋 Результат поиска:", found);
-    if (found) {
-      res.json({ valid: true, plan: found.plan, agent: found.agent, expiresAt: new Date(found.expiresAt).toISOString() });
-    } else {
-      res.status(401).json({ valid: false, message: "Token not found or expired" });
+    if (!found) {
+      return res.status(401).json({ valid: false, message: "Token not found" });
     }
+    if (found.status !== "active") {
+      return res.status(401).json({ valid: false, message: "Token inactive" });
+    }
+    if (found.expiresAt < Date.now()) {
+      return res.status(401).json({ valid: false, message: "Token expired" });
+    }
+
+    // Валидный токен
+    res.json({ valid: true, plan: found.plan, agent: found.agent, expiresAt: new Date(found.expiresAt).toISOString() });
   } catch (err) {
     console.error("❌ Ошибка при проверке токена:", err);
     res.status(500).json({ valid: false, message: "Internal server error" });
@@ -106,7 +113,6 @@ app.get("/tokens", async (req, res) => {
 });
 
 // 4. Удаление токена (DELETE)
-// Здесь можно либо удалять, либо помечать как "inactive" для безопасности
 app.delete("/tokens/:token", async (req, res) => {
   const { token } = req.params;
   const result = await tokensCollection.updateOne({ token }, { $set: { status: 'inactive' } });
