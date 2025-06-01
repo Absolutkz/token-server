@@ -21,6 +21,13 @@
 
   <h2>Генерация нового токена</h2>
   <form id="genForm" onsubmit="return generateToken();">
+    <label>Агент:&nbsp;
+      <select id="agent">
+        <option value="lawyer">Адвокат Человек</option>
+        <option value="zheka">ЖЭКА</option>
+        <option value="bankshield">БанкЩит</option>
+      </select>
+    </label>
     <label>Тариф:&nbsp;
       <select id="plan">
         <option value="day">На день</option>
@@ -36,6 +43,13 @@
   <h2>Проверка токена</h2>
   <form id="checkForm" onsubmit="return checkToken();">
     <input type="text" id="checkTokenInput" placeholder="Введите токен" maxlength="12" required>
+    <label>Агент:&nbsp;
+      <select id="checkAgent">
+        <option value="lawyer">Адвокат Человек</option>
+        <option value="zheka">ЖЭКА</option>
+        <option value="bankshield">БанкЩит</option>
+      </select>
+    </label>
     <button type="submit">Проверить</button>
     <span id="checkResult"></span>
   </form>
@@ -49,11 +63,22 @@
       <option value="expired">Истёкшие</option>
     </select>
   </label>
+  <label>
+    Агент:
+    <select id="filterAgent" onchange="loadTokens();">
+      <option value="">Все</option>
+      <option value="lawyer">Адвокат Человек</option>
+      <option value="zheka">ЖЭКА</option>
+      <option value="bankshield">БанкЩит</option>
+    </select>
+  </label>
   <button onclick="loadTokens();">Обновить</button>
+
   <table id="tokensTable">
     <thead>
       <tr>
         <th>Токен</th>
+        <th>Агент</th>
         <th>Тариф</th>
         <th>Истекает</th>
         <th>Статус</th>
@@ -69,7 +94,12 @@
     async function generateToken() {
       event.preventDefault();
       const plan = document.getElementById('plan').value;
-      const res = await fetch(`/generate-token?plan=${plan}`);
+      const agent = document.getElementById('agent').value;
+      const res = await fetch('/generate-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan, agent })
+      });
       const data = await res.json();
       if (data.success) {
         document.getElementById('genResult').textContent = `Токен: ${data.token}`;
@@ -83,11 +113,12 @@
     async function checkToken() {
       event.preventDefault();
       const token = document.getElementById('checkTokenInput').value.trim();
+      const agent = document.getElementById('checkAgent').value;
       if (!token) return false;
-      const res = await fetch(`/check-token?token=${token}`);
+      const res = await fetch(`/check-token?token=${token}&agent=${agent}`);
       const data = await res.json();
       if (data.valid) {
-        document.getElementById('checkResult').textContent = `ОК! Тариф: ${data.plan}, истекает: ${data.expiresAt}`;
+        document.getElementById('checkResult').textContent = `ОК! Агент: ${data.agent}, тариф: ${data.plan}, истекает: ${data.expiresAt}`;
       } else {
         document.getElementById('checkResult').textContent = `❌ ${data.message || 'Токен не найден'}`;
       }
@@ -96,7 +127,10 @@
 
     async function loadTokens() {
       const filter = document.getElementById('filter').value;
-      const res = await fetch(`/tokens?filter=${filter}`);
+      const agent = document.getElementById('filterAgent').value;
+      let url = `/tokens?filter=${filter}`;
+      if (agent) url += `&agent=${agent}`;
+      const res = await fetch(url);
       const tokens = await res.json();
       const tbody = document.getElementById('tokensTable').querySelector('tbody');
       tbody.innerHTML = "";
@@ -109,6 +143,7 @@
         tr.className = expired ? 'expired' : 'active';
         tr.innerHTML = `
           <td>${t.token}</td>
+          <td>${t.agent}</td>
           <td>${t.plan}</td>
           <td>${expires.toLocaleString()}</td>
           <td>${expired ? 'Истёк' : 'Активен'}</td>
