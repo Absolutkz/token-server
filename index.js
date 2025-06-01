@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require("express");
 const crypto = require("crypto");
 const path = require("path");
@@ -42,45 +43,53 @@ function generateToken() {
 
 // --- API ---
 
-// 1. Генерация токена (GET, query)
-app.get("/generate-token", async (req, res) => {
+// 1. Генерация токена (POST, JSON)
+app.post("/generate-token", async (req, res) => {
   try {
-    const plan = req.query.plan || "day";
-    // Определяем срок действия токена в зависимости от тарифа
-    let expiresIn = 24 * 60 * 60 * 1000; // по умолчанию сутки
+    const { plan = "day", agent = "lawyer" } = req.body;
+    if (!["lawyer", "zheka", "bankshield"].includes(agent)) {
+      return res.status(400).json({ success: false, message: "Invalid agent" });
+    }
+
+    let expiresIn = 24 * 60 * 60 * 1000; // default 1 day
     if (plan === "monthly") expiresIn = 30 * 24 * 60 * 60 * 1000;
     if (plan === "halfyear") expiresIn = 182 * 24 * 60 * 60 * 1000;
     if (plan === "yearly") expiresIn = 365 * 24 * 60 * 60 * 1000;
+
     const token = generateToken();
     const expiresAt = Date.now() + expiresIn;
-    const tokenData = { token, plan, expiresAt, status: "active" };
+    const tokenData = { token, plan, agent, expiresAt, status: "active" };
     await tokensCollection.insertOne(tokenData);
-    res.json({ success: true, token, plan, expiresAt });
+    res.json({ success: true, token, plan, agent, expiresAt });
   } catch (err) {
-    res.json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// 2. Проверка токена (GET, query)
+// 2. Проверка токена (GET)
 app.get("/check-token", async (req, res) => {
-  const { token } = req.query;
-  if (!token) return res.status(400).json({ valid: false, message: "Token required" });
-  const found = await tokensCollection.findOne({ token, status: "active", expiresAt: { $gt: Date.now() } });
+  const { token, agent } = req.query;
+  if (!token || !agent) {
+    return res.status(400).json({ valid: false, message: "Token and agent required" });
+  }
+  const found = await tokensCollection.findOne({ token, agent, status: "active", expiresAt: { $gt: Date.now() } });
   if (found) {
-    res.json({ valid: true, plan: found.plan, expiresAt: new Date(found.expiresAt).toLocaleString() });
+    res.json({ valid: true, plan: found.plan, agent: found.agent, expiresAt: new Date(found.expiresAt).toISOString() });
   } else {
     res.status(401).json({ valid: false, message: "Token not found or expired" });
   }
 });
 
-// 3. Список токенов (GET, query)
+// 3. Список токенов (GET)
 app.get("/tokens", async (req, res) => {
-  const { filter } = req.query;
+  const { filter, agent } = req.query;
   let query = {};
+  if (agent) query.agent = agent;
   if (filter === "active") {
-    query = { status: "active", expiresAt: { $gt: Date.now() } };
+    query.status = "active";
+    query.expiresAt = { $gt: Date.now() };
   } else if (filter === "expired") {
-    query = { $or: [{ status: { $ne: "active" } }, { expiresAt: { $lt: Date.now() } }] };
+    query.$or = [{ status: { $ne: "active" } }, { expiresAt: { $lt: Date.now() } }];
   }
   const tokens = await tokensCollection.find(query).toArray();
   res.json(tokens);
@@ -93,11 +102,11 @@ app.delete("/tokens/:token", async (req, res) => {
   if (result.deletedCount === 1) {
     res.json({ success: true });
   } else {
-    res.json({ success: false, message: "Token not found" });
+    res.status(404).json({ success: false, message: "Token not found" });
   }
 });
 
-// 5. Админ-панель (статический файл)
+// 5. Админ-панель
 app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "tokens-admin.html"));
 });
