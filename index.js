@@ -69,13 +69,23 @@ app.post("/generate-token", async (req, res) => {
   }
 });
 
-// 2. Проверка токена
+// 2. Проверка токена (GET) — поддержка UptimeRobot и всех агентов
 app.get("/check-token", async (req, res) => {
   const { token, agent } = req.query;
   console.log(`🔍 Проверка токена: ${token}, агент: ${agent}`);
 
   if (!token || !agent) {
-    return res.status(400).json({ valid: false, message: "Token and agent required" });
+    return res.status(400).json({ valid: false, message: "Требуется токен и агент" });
+  }
+
+  // ✅ Специальная проверка для мониторинга работоспособности
+  if (token === "test" && agent === "herbs") {
+    return res.json({
+      valid: true,
+      plan: "monitor",
+      agent: "herbs",
+      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+    });
   }
 
   try {
