@@ -46,7 +46,8 @@ function generateToken() {
 app.post("/generate-token", async (req, res) => {
   try {
     const { plan = "day", agent = "lawyer" } = req.body;
-    if (!["lawyer", "zheka", "bankshield"].includes(agent)) {
+
+    if (!["lawyer", "zheka", "bankshield", "herbs"].includes(agent)) {
       return res.status(400).json({ success: false, message: "Invalid agent" });
     }
 
@@ -59,6 +60,7 @@ app.post("/generate-token", async (req, res) => {
     const expiresAt = Date.now() + expiresIn;
     const tokenData = { token, plan, agent, expiresAt, status: "active" };
     await tokensCollection.insertOne(tokenData);
+
     console.log(`🔑 Новый токен создан: ${token}, агент: ${agent}, план: ${plan}`);
     res.json({ success: true, token, plan, agent, expiresAt });
   } catch (err) {
@@ -67,7 +69,7 @@ app.post("/generate-token", async (req, res) => {
   }
 });
 
-// 2. Проверка токена (GET) — универсальная логика для всех агентов
+// 2. Проверка токена
 app.get("/check-token", async (req, res) => {
   const { token, agent } = req.query;
   console.log(`🔍 Проверка токена: ${token}, агент: ${agent}`);
@@ -77,7 +79,6 @@ app.get("/check-token", async (req, res) => {
   }
 
   try {
-    // Проверка в базе данных: ищем токен для указанного агента
     const found = await tokensCollection.findOne({
       token,
       agent,
@@ -103,7 +104,7 @@ app.get("/check-token", async (req, res) => {
   }
 });
 
-// 3. Список токенов (GET)
+// 3. Список токенов
 app.get("/tokens", async (req, res) => {
   const { filter, agent } = req.query;
   let query = {};
@@ -118,7 +119,7 @@ app.get("/tokens", async (req, res) => {
   res.json(tokens);
 });
 
-// 4. Удаление токена (DELETE)
+// 4. Удаление токена
 app.delete("/tokens/:token", async (req, res) => {
   const { token } = req.params;
   const result = await tokensCollection.updateOne({ token }, { $set: { status: 'inactive' } });
@@ -140,3 +141,4 @@ connectDB().then(() => {
     console.log(`🚀 Сервер запущен на порту ${PORT}`);
   });
 });
+
