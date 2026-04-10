@@ -26,9 +26,11 @@ async function connectDB() {
     await client.connect();
     const db = client.db("token-server");
     tokensCollection = db.collection("tokens");
-    console.log("✅ Подключено к MongoDB");
+    console.log("Connected to MongoDB");
   } catch (e) {
-    console.error("❌ Ошибка подключения к MongoDB:", e);
+    console.error("MongoDB connection error:", e);
+    console.error("Message:", e?.message);
+    console.error("Stack:", e?.stack);
     process.exit(1);
   }
 }
