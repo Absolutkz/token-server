@@ -149,8 +149,8 @@ app.get("/admin", (req, res) => {
 
 // --- Запуск сервера ---
 connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`🚀 Сервер запущен на порту ${PORT}`);
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on port ${PORT}`);
   });
 });
 
