@@ -81,14 +81,14 @@ app.get("/check-token", async (req, res) => {
   }
 
   // ✅ Специальная проверка для мониторинга работоспособности
-  if (token === "test" && agent === "herbs") {
-    return res.json({
-      valid: true,
-      plan: "monitor",
-      agent: "herbs",
-      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-    });
-  }
+  if (token === "test" && ["herbs", "lawyer", "zheka", "bankshield"].includes(agent)) {
+  return res.json({
+    valid: true,
+    plan: "monitor",
+    agent,
+    expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+  });
+}
 
   try {
     const found = await tokensCollection.findOne({
