@@ -103,7 +103,7 @@ app.get("/check-token", async (req, res) => {
         ? rawAgent.trim()
         : "bankshield";
 
-    console.log(`🔍 Проверка токена: ${token}, агент: ${agent}`);
+    console.log(`🔍 Проверка токена для агента: ${agent}`);
 
     if (!token) {
       return res.status(400).json({
