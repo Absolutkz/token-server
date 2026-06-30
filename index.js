@@ -48,7 +48,7 @@ app.post("/generate-token", async (req, res) => {
   try {
     const { plan = "day", agent = "lawyer" } = req.body;
 
-    if (!["lawyer", "zheka", "bankshield", "herbs"].includes(agent)) {
+   if (!["lawyer", "zheka", "bankshield", "herbs", "rf_procedure_navigator"].includes(agent)) {
       return res.status(400).json({
         success: false,
         message: "Invalid agent",
@@ -112,7 +112,7 @@ app.get("/check-token", async (req, res) => {
       });
     }
 
-    if (!["herbs", "lawyer", "zheka", "bankshield"].includes(agent)) {
+    if (!["lawyer", "zheka", "bankshield", "herbs", "rf_procedure_navigator"].includes(agent)) {
       return res.status(400).json({
         valid: false,
         message: "Invalid agent",
