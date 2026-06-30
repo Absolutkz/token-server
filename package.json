@@ -1,14 +1,15 @@
 {
   "name": "token-server",
-  "version": "1.0.0",
-  "description": "API для генерации и проверки токенов",
+  "version": "1.1.0",
+  "description": "API для генерации токенов и подтверждения доступа по email",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "mongodb": "^6.7.0"
+    "mongodb": "^6.7.0",
+    "nodemailer": "^6.9.16"
   },
   "engines": {
     "node": "20.x"
