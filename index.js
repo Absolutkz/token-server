@@ -119,17 +119,6 @@ app.get("/check-token", async (req, res) => {
       });
     }
 
-    // Специальная проверка для мониторинга
-    if (token === "test") {
-      return res.json({
-        valid: true,
-        plan: "monitor",
-        agent,
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-        message: "Token is valid",
-      });
-    }
-
     const found = await tokensCollection.findOne({
       token,
       agent,
