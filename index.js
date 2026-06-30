@@ -198,6 +198,14 @@ function getMailTransporter() {
 }
 
 async function sendOtpEmail(email, code, agent) {
+  if (process.env.OTP_DEBUG === "true") {
+    console.log(
+      `🧪 OTP_DEBUG CODE: ${code}, email: ${maskEmail(email)}, agent: ${agent}`
+    );
+
+    return;
+  }
+
   const transporter = getMailTransporter();
 
   await transporter.sendMail({
