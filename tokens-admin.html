@@ -2,175 +2,1197 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Управление токенами</title>
+
   <style>
-    body { font-family: Arial, sans-serif; margin: 30px; }
-    h1 { margin-bottom: 10px; }
-    input, select, button { margin: 5px 0; padding: 6px; font-size: 16px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
-    th { background: #f7f7f7; }
-    tr.expired { background: #ffe5e5; }
-    tr.active { background: #e5ffe7; }
-    .btn-del { color: #b00; background: #fff; border: 1px solid #b00; cursor: pointer; padding: 3px 8px; border-radius: 3px; }
-    .btn-del:hover { background: #fdd; }
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: Arial, sans-serif;
+      color: #1f2937;
+      background: #f3f4f6;
+    }
+
+    .container {
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+
+    .card {
+      margin-bottom: 22px;
+      padding: 20px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      background: #ffffff;
+    }
+
+    h1 {
+      margin-top: 0;
+    }
+
+    h2 {
+      margin-top: 0;
+      font-size: 21px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      align-items: end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-weight: bold;
+    }
+
+    input,
+    select,
+    button {
+      min-height: 42px;
+      padding: 9px 11px;
+      border-radius: 6px;
+      font-size: 15px;
+    }
+
+    input,
+    select {
+      width: 100%;
+      border: 1px solid #9ca3af;
+      background: #ffffff;
+    }
+
+    button {
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .btn-primary {
+      color: #ffffff;
+      background: #2563eb;
+    }
+
+    .btn-secondary {
+      color: #111827;
+      border-color: #9ca3af;
+      background: #ffffff;
+    }
+
+    .btn-warning {
+      color: #78350f;
+      border-color: #f59e0b;
+      background: #fffbeb;
+    }
+
+    .btn-danger {
+      color: #991b1b;
+      border-color: #dc2626;
+      background: #ffffff;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .message {
+      min-height: 22px;
+      margin-top: 12px;
+      font-weight: bold;
+      white-space: pre-wrap;
+    }
+
+    .success {
+      color: #047857;
+    }
+
+    .error {
+      color: #b91c1c;
+    }
+
+    .info {
+      color: #1d4ed8;
+    }
+
+    .hint {
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1250px;
+      margin-top: 18px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 8px 10px;
+      border: 1px solid #d1d5db;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #e5e7eb;
+    }
+
+    tr.active {
+      background: #ecfdf5;
+    }
+
+    tr.expired {
+      background: #fff7ed;
+    }
+
+    tr.inactive {
+      background: #fee2e2;
+    }
+
+    .token {
+      font-family: Consolas, monospace;
+      font-weight: bold;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      min-width: 280px;
+    }
+
+    .small {
+      min-height: 32px;
+      padding: 5px 8px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 700px) {
+      body {
+        padding: 12px;
+      }
+
+      .card {
+        padding: 14px;
+      }
+    }
   </style>
 </head>
+
 <body>
-  <h1>Админ-панель токенов</h1>
+  <div class="container">
+    <h1>Админ-панель токенов</h1>
 
-  <h2>Генерация нового токена</h2>
-  <form id="genForm" onsubmit="return generateToken();">
-    <label>Агент:&nbsp;
-      <select id="agent">
-        <option value="lawyer">Адвокат Человек</option>
-        <option value="zheka">ЖЭКА</option>
-        <option value="bankshield">БанкЩит</option>
-        <option value="herbs">ER Herbs</option>
-        <option value="rf_procedure_navigator">Процедурный навигатор РФ</option>
-        <option value="kz_procedure_navigator">РК. Процедура. Контроль власти</option>
-        <option value="egregorial_manager">Оператор Кодов — Эгрегориальный менеджмент</option>
-      </select>
-    </label>
-    <label>Тариф:&nbsp;
-      <select id="plan">
-        <option value="day">На день</option>
-        <option value="monthly">На месяц</option>
-        <option value="halfyear">На 6 месяцев</option>
-        <option value="yearly">На год</option>
-      </select>
-    </label>
-    <button type="submit">Сгенерировать</button>
-    <span id="genResult"></span>
-  </form>
+    <section class="card">
+      <h2>Административный ключ</h2>
 
-  <h2>Проверка токена</h2>
-  <form id="checkForm" onsubmit="return checkToken();">
-    <input type="text" id="checkTokenInput" placeholder="Введите токен" maxlength="12" required>
-    <label>Агент:&nbsp;
-      <select id="checkAgent">
-        <option value="lawyer">Адвокат Человек</option>
-        <option value="zheka">ЖЭКА</option>
-        <option value="bankshield">БанкЩит</option>
-        <option value="herbs">ER Herbs</option>
-      </select>
-    </label>
-    <button type="submit">Проверить</button>
-    <span id="checkResult"></span>
-  </form>
+      <div class="grid">
+        <div class="field">
+          <label for="adminKey">ADMIN_KEY</label>
 
-  <h2>Список всех токенов</h2>
-  <label>
-    Фильтр:
-    <select id="filter" onchange="loadTokens();">
-      <option value="all">Все</option>
-      <option value="active">Активные</option>
-      <option value="expired">Истёкшие</option>
-    </select>
-  </label>
-  <label>
-    Агент:
-    <select id="filterAgent" onchange="loadTokens();">
-      <option value="">Все</option>
-      <option value="lawyer">Адвокат Человек</option>
-      <option value="zheka">ЖЭКА</option>
-      <option value="bankshield">БанкЩит</option>
-      <option value="herbs">ER Herbs</option>
-    </select>
-  </label>
-  <button onclick="loadTokens();">Обновить</button>
+          <input
+            type="password"
+            id="adminKey"
+            placeholder="Введите ADMIN_KEY из Render"
+            autocomplete="off"
+          >
+        </div>
 
-  <table id="tokensTable">
-    <thead>
-      <tr>
-        <th>Токен</th>
-        <th>Агент</th>
-        <th>Тариф</th>
-        <th>Истекает</th>
-        <th>Статус</th>
-        <th>Удалить</th>
-      </tr>
-    </thead>
-    <tbody>
-      <!-- токены будут здесь -->
-    </tbody>
-  </table>
+        <div class="button-row">
+          <button
+            type="button"
+            class="btn-primary"
+            onclick="saveAdminKey()"
+          >
+            Сохранить
+          </button>
+
+          <button
+            type="button"
+            class="btn-secondary"
+            onclick="clearAdminKey()"
+          >
+            Очистить
+          </button>
+        </div>
+      </div>
+
+      <p class="hint">
+        Ключ хранится только в текущей вкладке браузера.
+      </p>
+
+      <div id="adminStatus" class="message"></div>
+    </section>
+
+    <section class="card">
+      <h2>Создание токена</h2>
+
+      <form onsubmit="return generateToken(event);">
+        <div class="grid">
+          <div class="field">
+            <label for="agent">Агент</label>
+
+            <select id="agent">
+              <option value="lawyer">Адвокат Человек</option>
+              <option value="zheka">ЖЭКА</option>
+              <option value="bankshield">БанкЩит</option>
+              <option value="herbs">ER Herbs</option>
+              <option value="rf_procedure_navigator">
+                Процедурный навигатор РФ
+              </option>
+              <option value="kz_procedure_navigator">
+                РК. Процедура. Контроль власти
+              </option>
+              <option value="egregorial_manager">
+                Оператор Кодов — Эгрегориальный менеджмент
+              </option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="plan">Тариф</label>
+
+            <select id="plan">
+              <option value="day">На день</option>
+              <option value="monthly">На месяц</option>
+              <option value="halfyear">На 6 месяцев</option>
+              <option value="yearly">На год</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="ownerEmail">Email владельца</label>
+
+            <input
+              type="email"
+              id="ownerEmail"
+              placeholder="user@example.com"
+              autocomplete="off"
+              required
+            >
+          </div>
+
+          <div class="field">
+            <button type="submit" class="btn-primary">
+              Сгенерировать
+            </button>
+          </div>
+        </div>
+
+        <div id="genResult" class="message"></div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Проверка токена и email</h2>
+
+      <div class="grid">
+        <div class="field">
+          <label for="checkToken">Токен</label>
+
+          <input
+            type="text"
+            id="checkToken"
+            maxlength="64"
+            placeholder="Введите токен"
+            autocomplete="off"
+          >
+        </div>
+
+        <div class="field">
+          <label for="checkAgent">Агент</label>
+
+          <select id="checkAgent">
+            <option value="lawyer">Адвокат Человек</option>
+            <option value="zheka">ЖЭКА</option>
+            <option value="bankshield">БанкЩит</option>
+            <option value="herbs">ER Herbs</option>
+            <option value="rf_procedure_navigator">
+              Процедурный навигатор РФ
+            </option>
+            <option value="kz_procedure_navigator">
+              РК. Процедура. Контроль власти
+            </option>
+            <option value="egregorial_manager">
+              Оператор Кодов — Эгрегориальный менеджмент
+            </option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="checkEmail">Email владельца</label>
+
+          <input
+            type="email"
+            id="checkEmail"
+            placeholder="user@example.com"
+            autocomplete="off"
+          >
+        </div>
+
+        <div class="field">
+          <button
+            type="button"
+            class="btn-primary"
+            onclick="requestCode()"
+          >
+            Отправить код
+          </button>
+        </div>
+      </div>
+
+      <div id="requestResult" class="message"></div>
+
+      <div class="grid">
+        <div class="field">
+          <label for="verificationCode">Код из письма</label>
+
+          <input
+            type="text"
+            id="verificationCode"
+            maxlength="6"
+            inputmode="numeric"
+            placeholder="123456"
+            autocomplete="one-time-code"
+          >
+        </div>
+
+        <div class="field">
+          <button
+            type="button"
+            class="btn-primary"
+            onclick="confirmCode()"
+          >
+            Подтвердить код
+          </button>
+        </div>
+
+        <div class="field">
+          <label for="sessionKey">Session key</label>
+
+          <input
+            type="password"
+            id="sessionKey"
+            placeholder="Появится после подтверждения"
+            autocomplete="off"
+          >
+        </div>
+
+        <div class="field">
+          <button
+            type="button"
+            class="btn-secondary"
+            onclick="checkSession()"
+          >
+            Проверить сессию
+          </button>
+        </div>
+      </div>
+
+      <div id="verificationResult" class="message"></div>
+    </section>
+
+    <section class="card">
+      <h2>Список токенов</h2>
+
+      <div class="grid">
+        <div class="field">
+          <label for="filter">Статус</label>
+
+          <select id="filter">
+            <option value="all">Все</option>
+            <option value="active">Активные</option>
+            <option value="expired">Истёкшие и отключённые</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="filterAgent">Агент</label>
+
+          <select id="filterAgent">
+            <option value="">Все агенты</option>
+            <option value="lawyer">Адвокат Человек</option>
+            <option value="zheka">ЖЭКА</option>
+            <option value="bankshield">БанкЩит</option>
+            <option value="herbs">ER Herbs</option>
+            <option value="rf_procedure_navigator">
+              Процедурный навигатор РФ
+            </option>
+            <option value="kz_procedure_navigator">
+              РК. Процедура. Контроль власти
+            </option>
+            <option value="egregorial_manager">
+              Оператор Кодов — Эгрегориальный менеджмент
+            </option>
+          </select>
+        </div>
+
+        <div class="field">
+          <button
+            type="button"
+            class="btn-primary"
+            onclick="loadTokens()"
+          >
+            Обновить
+          </button>
+        </div>
+      </div>
+
+      <div id="listResult" class="message"></div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Токен</th>
+              <th>Агент</th>
+              <th>Тариф</th>
+              <th>Email</th>
+              <th>Подтверждён</th>
+              <th>Истекает</th>
+              <th>Статус</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+
+          <tbody id="tokensBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
 
   <script>
-    async function generateToken() {
-      event.preventDefault();
-      const plan = document.getElementById('plan').value;
-      const agent = document.getElementById('agent').value;
-      const res = await fetch('/generate-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan, agent })
-      });
-      const data = await res.json();
-      if (data.success) {
-        document.getElementById('genResult').textContent = `Токен: ${data.token}`;
-        loadTokens();
-      } else {
-        document.getElementById('genResult').textContent = 'Ошибка: ' + data.message;
+    const AGENT_NAMES = {
+      lawyer: "Адвокат Человек",
+      zheka: "ЖЭКА",
+      bankshield: "БанкЩит",
+      herbs: "ER Herbs",
+      rf_procedure_navigator: "Процедурный навигатор РФ",
+      kz_procedure_navigator: "РК. Процедура. Контроль власти",
+      egregorial_manager:
+        "Оператор Кодов — Эгрегориальный менеджмент"
+    };
+
+    function setMessage(id, text, type = "info") {
+      const element = document.getElementById(id);
+
+      element.textContent = text;
+      element.className = `message ${type}`;
+    }
+
+    function getAdminKey() {
+      return sessionStorage.getItem("tokenAdminKey") || "";
+    }
+
+    function saveAdminKey() {
+      const key = document.getElementById("adminKey").value.trim();
+
+      if (!key) {
+        setMessage(
+          "adminStatus",
+          "Введите ADMIN_KEY.",
+          "error"
+        );
+
+        return;
       }
+
+      sessionStorage.setItem("tokenAdminKey", key);
+
+      setMessage(
+        "adminStatus",
+        "ADMIN_KEY сохранён.",
+        "success"
+      );
+
+      loadTokens();
+    }
+
+    function clearAdminKey() {
+      sessionStorage.removeItem("tokenAdminKey");
+
+      document.getElementById("adminKey").value = "";
+      document.getElementById("tokensBody").innerHTML = "";
+
+      setMessage(
+        "adminStatus",
+        "ADMIN_KEY удалён.",
+        "info"
+      );
+    }
+
+    function requireAdminKey() {
+      const key = getAdminKey();
+
+      if (!key) {
+        throw new Error(
+          "Сначала введите и сохраните ADMIN_KEY."
+        );
+      }
+
+      return key;
+    }
+
+    function adminHeaders(json = false) {
+      const headers = {
+        "x-admin-key": requireAdminKey()
+      };
+
+      if (json) {
+        headers["Content-Type"] = "application/json";
+      }
+
+      return headers;
+    }
+
+    function normalizeToken(value) {
+      return String(value || "").trim().toUpperCase();
+    }
+
+    function normalizeEmail(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function formatDate(value) {
+      if (!value) {
+        return "—";
+      }
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return "—";
+      }
+
+      return date.toLocaleString("ru-RU");
+    }
+
+    async function apiRequest(url, options = {}) {
+      const response = await fetch(url, options);
+      const text = await response.text();
+
+      let data = {};
+
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = {
+            message: text
+          };
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || `Ошибка HTTP ${response.status}`
+        );
+      }
+
+      return data;
+    }
+
+    async function generateToken(event) {
+      event.preventDefault();
+
+      setMessage(
+        "genResult",
+        "Создаю токен...",
+        "info"
+      );
+
+      try {
+        const plan = document.getElementById("plan").value;
+        const agent = document.getElementById("agent").value;
+        const ownerEmail = normalizeEmail(
+          document.getElementById("ownerEmail").value
+        );
+
+        if (!ownerEmail) {
+          throw new Error("Введите email владельца.");
+        }
+
+        const data = await apiRequest(
+          "/generate-token",
+          {
+            method: "POST",
+            headers: adminHeaders(true),
+            body: JSON.stringify({
+              plan,
+              agent,
+              ownerEmail
+            })
+          }
+        );
+
+        setMessage(
+          "genResult",
+          [
+            `Токен: ${data.token}`,
+            `Агент: ${data.agent}`,
+            `Email: ${data.ownerEmail}`,
+            `Истекает: ${formatDate(data.expiresAt)}`
+          ].join("\n"),
+          "success"
+        );
+
+        document.getElementById("checkToken").value =
+          data.token;
+
+        document.getElementById("checkAgent").value =
+          data.agent;
+
+        document.getElementById("checkEmail").value =
+          data.ownerEmail;
+
+        await loadTokens();
+      } catch (error) {
+        setMessage(
+          "genResult",
+          `Ошибка: ${error.message}`,
+          "error"
+        );
+      }
+
       return false;
     }
 
-    async function checkToken() {
-      event.preventDefault();
-      const token = document.getElementById('checkTokenInput').value.trim();
-      const agent = document.getElementById('checkAgent').value;
-      if (!token) return false;
-      const res = await fetch(`/check-token?token=${token}&agent=${agent}`);
-      const data = await res.json();
-      if (data.valid) {
-        document.getElementById('checkResult').textContent = `ОК! Агент: ${data.agent}, тариф: ${data.plan}, истекает: ${data.expiresAt}`;
-      } else {
-        document.getElementById('checkResult').textContent = `❌ ${data.message || 'Токен не найден'}`;
+    function getVerificationData() {
+      const token = normalizeToken(
+        document.getElementById("checkToken").value
+      );
+
+      const agent =
+        document.getElementById("checkAgent").value;
+
+      const email = normalizeEmail(
+        document.getElementById("checkEmail").value
+      );
+
+      if (!token) {
+        throw new Error("Введите токен.");
       }
-      return false;
+
+      if (!email) {
+        throw new Error("Введите email.");
+      }
+
+      return {
+        token,
+        agent,
+        email
+      };
+    }
+
+    async function requestCode() {
+      setMessage(
+        "requestResult",
+        "Отправляю код...",
+        "info"
+      );
+
+      try {
+        const dataForRequest = getVerificationData();
+
+        const data = await apiRequest(
+          "/request-code",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(dataForRequest)
+          }
+        );
+
+        setMessage(
+          "requestResult",
+          `Код отправлен. Действует ${data.expiresInSeconds} секунд.`,
+          "success"
+        );
+      } catch (error) {
+        setMessage(
+          "requestResult",
+          `Ошибка: ${error.message}`,
+          "error"
+        );
+      }
+    }
+
+    async function confirmCode() {
+      setMessage(
+        "verificationResult",
+        "Проверяю код...",
+        "info"
+      );
+
+      try {
+        const verificationData = getVerificationData();
+
+        const code =
+          document.getElementById("verificationCode")
+            .value
+            .trim();
+
+        if (!/^\d{6}$/.test(code)) {
+          throw new Error(
+            "Введите шестизначный код."
+          );
+        }
+
+        const data = await apiRequest(
+          "/confirm-code",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              ...verificationData,
+              code
+            })
+          }
+        );
+
+        document.getElementById("sessionKey").value =
+          data.sessionKey || "";
+
+        setMessage(
+          "verificationResult",
+          [
+            "Доступ подтверждён.",
+            `Агент: ${data.agent}`,
+            `Тариф: ${data.plan}`,
+            `Токен действует до: ${formatDate(data.expiresAt)}`,
+            `Сессия действует до: ${formatDate(data.sessionExpiresAt)}`
+          ].join("\n"),
+          "success"
+        );
+
+        await loadTokens();
+      } catch (error) {
+        setMessage(
+          "verificationResult",
+          `Ошибка: ${error.message}`,
+          "error"
+        );
+      }
+    }
+
+    async function checkSession() {
+      setMessage(
+        "verificationResult",
+        "Проверяю сессию...",
+        "info"
+      );
+
+      try {
+        const verificationData = getVerificationData();
+
+        const sessionKey =
+          document.getElementById("sessionKey")
+            .value
+            .trim();
+
+        if (!sessionKey) {
+          throw new Error(
+            "Введите session key."
+          );
+        }
+
+        const data = await apiRequest(
+          "/check-token",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              token: verificationData.token,
+              agent: verificationData.agent,
+              sessionKey
+            })
+          }
+        );
+
+        setMessage(
+          "verificationResult",
+          [
+            "Сессия действительна.",
+            `Агент: ${data.agent}`,
+            `Email: ${data.ownerEmail}`,
+            `Сессия действует до: ${formatDate(data.sessionExpiresAt)}`
+          ].join("\n"),
+          "success"
+        );
+      } catch (error) {
+        setMessage(
+          "verificationResult",
+          `Ошибка: ${error.message}`,
+          "error"
+        );
+      }
     }
 
     async function loadTokens() {
-      const filter = document.getElementById('filter').value;
-      const agent = document.getElementById('filterAgent').value;
-      let url = `/tokens?filter=${filter}`;
-      if (agent) url += `&agent=${agent}`;
-      const res = await fetch(url);
-      const tokens = await res.json();
-      const tbody = document.getElementById('tokensTable').querySelector('tbody');
-      tbody.innerHTML = "";
-      const now = Date.now();
+      setMessage(
+        "listResult",
+        "Загружаю токены...",
+        "info"
+      );
 
-      tokens.forEach(t => {
-        const expires = new Date(t.expiresAt);
-        const expired = now > expires.getTime();
-        const tr = document.createElement('tr');
-        tr.className = expired ? 'expired' : 'active';
-        tr.innerHTML = `
-          <td>${t.token}</td>
-          <td>${t.agent}</td>
-          <td>${t.plan}</td>
-          <td>${expires.toLocaleString()}</td>
-          <td>${expired ? 'Истёк' : 'Активен'}</td>
-          <td><button class="btn-del" onclick="deleteToken('${t.token}')">Удалить</button></td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
+      try {
+        requireAdminKey();
 
-    async function deleteToken(token) {
-      if (!confirm('Удалить токен ' + token + '?')) return;
-      const res = await fetch(`/tokens/${token}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) {
-        loadTokens();
-      } else {
-        alert('Ошибка: ' + data.message);
+        const filter =
+          document.getElementById("filter").value;
+
+        const agent =
+          document.getElementById("filterAgent").value;
+
+        const params = new URLSearchParams();
+
+        params.set("filter", filter);
+
+        if (agent) {
+          params.set("agent", agent);
+        }
+
+        const tokens = await apiRequest(
+          `/tokens?${params.toString()}`,
+          {
+            headers: adminHeaders()
+          }
+        );
+
+        renderTokens(tokens);
+
+        setMessage(
+          "listResult",
+          `Найдено токенов: ${tokens.length}`,
+          "success"
+        );
+      } catch (error) {
+        document.getElementById("tokensBody").innerHTML = "";
+
+        setMessage(
+          "listResult",
+          `Ошибка: ${error.message}`,
+          "error"
+        );
       }
     }
 
-    window.onload = loadTokens;
+    function createCell(text) {
+      const cell = document.createElement("td");
+
+      cell.textContent =
+        text === undefined || text === null
+          ? "—"
+          : String(text);
+
+      return cell;
+    }
+
+    function createButton(text, className, handler) {
+      const button = document.createElement("button");
+
+      button.type = "button";
+      button.textContent = text;
+      button.className = `${className} small`;
+      button.addEventListener("click", handler);
+
+      return button;
+    }
+
+    function getStatus(token) {
+      const expiresAt =
+        new Date(token.expiresAt).getTime();
+
+      if (token.status !== "active") {
+        return {
+          text: "Отключён",
+          className: "inactive"
+        };
+      }
+
+      if (
+        !Number.isNaN(expiresAt) &&
+        expiresAt <= Date.now()
+      ) {
+        return {
+          text: "Истёк",
+          className: "expired"
+        };
+      }
+
+      return {
+        text: "Активен",
+        className: "active"
+      };
+    }
+
+    function renderTokens(tokens) {
+      const tbody =
+        document.getElementById("tokensBody");
+
+      tbody.innerHTML = "";
+
+      for (const token of tokens) {
+        const row = document.createElement("tr");
+        const status = getStatus(token);
+
+        row.className = status.className;
+
+        const tokenCell = createCell(token.token);
+        tokenCell.className = "token";
+
+        row.appendChild(tokenCell);
+
+        row.appendChild(
+          createCell(
+            AGENT_NAMES[token.agent] || token.agent
+          )
+        );
+
+        row.appendChild(
+          createCell(token.plan)
+        );
+
+        row.appendChild(
+          createCell(
+            token.ownerEmail || "Не назначен"
+          )
+        );
+
+        row.appendChild(
+          createCell(
+            token.emailVerified ? "Да" : "Нет"
+          )
+        );
+
+        row.appendChild(
+          createCell(formatDate(token.expiresAt))
+        );
+
+        row.appendChild(
+          createCell(status.text)
+        );
+
+        const actionsCell =
+          document.createElement("td");
+
+        const actions =
+          document.createElement("div");
+
+        actions.className = "actions";
+
+        actions.appendChild(
+          createButton(
+            "Копировать",
+            "btn-secondary",
+            () => copyToken(token.token)
+          )
+        );
+
+        actions.appendChild(
+          createButton(
+            "Сменить email",
+            "btn-warning",
+            () => changeOwner(
+              token.token,
+              token.agent,
+              token.ownerEmail || ""
+            )
+          )
+        );
+
+        actions.appendChild(
+          createButton(
+            "Сбросить владельца",
+            "btn-warning",
+            () => resetOwner(
+              token.token,
+              token.agent
+            )
+          )
+        );
+
+        actions.appendChild(
+          createButton(
+            "Отключить",
+            "btn-danger",
+            () => deactivateToken(
+              token.token,
+              token.agent
+            )
+          )
+        );
+
+        actionsCell.appendChild(actions);
+        row.appendChild(actionsCell);
+        tbody.appendChild(row);
+      }
+    }
+
+    async function copyToken(token) {
+      try {
+        await navigator.clipboard.writeText(token);
+
+        setMessage(
+          "listResult",
+          `Токен ${token} скопирован.`,
+          "success"
+        );
+      } catch {
+        window.prompt(
+          "Скопируйте токен:",
+          token
+        );
+      }
+    }
+
+    async function changeOwner(
+      token,
+      agent,
+      currentEmail
+    ) {
+      const email = window.prompt(
+        "Введите новый email владельца:",
+        currentEmail
+      );
+
+      if (email === null) {
+        return;
+      }
+
+      const ownerEmail = normalizeEmail(email);
+
+      if (!ownerEmail) {
+        alert("Email не введён.");
+        return;
+      }
+
+      try {
+        await apiRequest(
+          `/tokens/${encodeURIComponent(token)}/owner`,
+          {
+            method: "PUT",
+            headers: adminHeaders(true),
+            body: JSON.stringify({
+              agent,
+              ownerEmail
+            })
+          }
+        );
+
+        alert("Email владельца изменён.");
+        await loadTokens();
+      } catch (error) {
+        alert(`Ошибка: ${error.message}`);
+      }
+    }
+
+    async function resetOwner(token, agent) {
+      const confirmed = confirm(
+        `Сбросить владельца токена ${token}?`
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        await apiRequest(
+          `/tokens/${encodeURIComponent(token)}/owner`,
+          {
+            method: "DELETE",
+            headers: adminHeaders(true),
+            body: JSON.stringify({
+              agent
+            })
+          }
+        );
+
+        alert("Владелец сброшен.");
+        await loadTokens();
+      } catch (error) {
+        alert(`Ошибка: ${error.message}`);
+      }
+    }
+
+    async function deactivateToken(token, agent) {
+      const confirmed = confirm(
+        `Отключить токен ${token}?`
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        await apiRequest(
+          `/tokens/${encodeURIComponent(token)}`,
+          {
+            method: "DELETE",
+            headers: adminHeaders(true),
+            body: JSON.stringify({
+              agent
+            })
+          }
+        );
+
+        alert("Токен отключён.");
+        await loadTokens();
+      } catch (error) {
+        alert(`Ошибка: ${error.message}`);
+      }
+    }
+
+    window.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        const savedKey = getAdminKey();
+
+        if (savedKey) {
+          document.getElementById("adminKey").value =
+            savedKey;
+
+          setMessage(
+            "adminStatus",
+            "ADMIN_KEY загружен.",
+            "success"
+          );
+
+          loadTokens();
+        } else {
+          setMessage(
+            "adminStatus",
+            "Введите ADMIN_KEY.",
+            "info"
+          );
+        }
+      }
+    );
   </script>
 </body>
 </html>
